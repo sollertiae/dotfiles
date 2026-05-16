@@ -23,6 +23,13 @@
   (package-install 'use-package))
 (require 'use-package)
 
+;; Wrap region
+(use-package wrap-region
+  :ensure t
+  :config
+  (wrap-region-global-mode t)
+  (wrap-region-add-wrapper "`" "`"))
+
 ;; Clean UI
 (menu-bar-mode -1)
 (tool-bar-mode -1)
@@ -64,11 +71,36 @@
 
 ;; Eglot
 (use-package eglot
-  :hook ((c-mode . eglot-ensure)
-         (c++-mode . eglot-ensure))
+  :hook ((c-mode    . eglot-ensure)
+         (c++-mode  . eglot-ensure)
+         (rust-mode . eglot-ensure)
+         (go-mode   . eglot-ensure))
   :config
   (add-to-list 'eglot-server-programs
-               '((c-mode c++-mode) . ("clangd"))))
+               '((c-mode c++-mode) . ("clangd")))
+  (add-to-list 'eglot-server-programs
+               '(rust-mode . ("rust-analyzer")))
+  (add-to-list '(go-mode   . ("gopls"))))
+
+;; Rust
+(use-package rust-mode
+  :ensure t
+  :hook (rust-mode . eglot-ensure)
+  :config
+  (setq rust-format-on-save t))
+
+;; Go
+(use-package go-mode
+  :ensure t
+  :hook ((go-mode . eglot-ensure)
+         (go-mode . (lambda ()
+                      (setq tab-width 4)
+                      (add-hook 'before-save-hook #'eglot-format-buffer nil t)))))
+
+;; Add Go's bin directory
+(let ((go-bin (expand-file-name "~/go/bin")))
+  (add-to-list 'exec-path go-bin)
+  (setenv "PATH" (concat go-bin path-separator (getenv "PATH"))))
 
 ;; Keybinds
 ;; Split vertical (side by side)
@@ -95,7 +127,7 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(package-selected-packages '(magit company)))
+ '(package-selected-packages '(rust-mode markdown-mode wrap-region magit company)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
@@ -104,7 +136,7 @@
  )
 
 ;; TODO/NOTE Highlight
-(setq fixme-modes '(c++-mode c-mode))
+(setq fixme-modes '(c++-mode c-mode rust-mode go-mode))
 (make-face 'font-lock-fixme-face)
 (make-face 'font-lock-note-face)
 (mapc (lambda (mode)
@@ -115,3 +147,9 @@
       fixme-modes)
 (modify-face 'font-lock-fixme-face "Red" nil nil t nil t nil nil)
 (modify-face 'font-lock-note-face "Dark Green" nil nil t nil t nil nil)
+
+;; Markdown Highlight
+(use-package markdown-mode
+  :ensure t
+  :mode ("README\\.md\\'" . gfm-mode)
+  :init (setq markdown-command "multimarkdown"))
